@@ -1006,13 +1006,15 @@ impl SettingsSection {
         Self::Integrations,
     ];
 
-    pub fn label(self) -> &'static str {
+    /// 返回分区页签的翻译 key，渲染/命中计算处用 `tr(section.label())` 取本地化文案。
+    pub fn label(self) -> crate::i18n::TranslationKey {
+        use crate::i18n::TranslationKey;
         match self {
-            Self::Theme => "theme",
-            Self::Sound => "sound",
-            Self::Toast => "toasts",
-            Self::PaneLabels => "pane labels",
-            Self::Integrations => "integrations",
+            Self::Theme => TranslationKey::SectionTheme,
+            Self::Sound => TranslationKey::SectionSound,
+            Self::Toast => TranslationKey::SectionToast,
+            Self::PaneLabels => TranslationKey::SectionPaneLabels,
+            Self::Integrations => TranslationKey::SectionIntegrations,
         }
     }
 }

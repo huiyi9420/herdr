@@ -164,7 +164,9 @@ mod tests {
                 .copy_feedback
                 .as_ref()
                 .map(|feedback| feedback.message.as_str()),
-            Some("copied to clipboard")
+            Some(crate::i18n::tr(
+                crate::i18n::TranslationKey::CopiedToClipboard
+            ))
         );
 
         app.route_client_events_from(

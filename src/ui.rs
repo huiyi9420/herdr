@@ -63,6 +63,7 @@ pub(crate) use self::tab_surface::{
     compute_tab_surface, render_tab_surface, resize_tab_surface, TabSurfaceLayout,
 };
 use self::tabs::render_tab_bar;
+pub(crate) use self::text::display_width_u16;
 pub(crate) use self::{
     dialogs::{
         confirm_close_button_rects, confirm_close_popup_rect, new_linked_worktree_button_rects,
@@ -598,6 +599,7 @@ mod tests {
     use super::keybind_help::keybind_help_groups;
     use super::scrollbar::scrollbar_thumb;
     use super::*;
+    use crate::i18n::{tr, TranslationKey};
     use crate::{app::state::ViewLayout, layout::PaneInfo, workspace::Workspace};
     use ratatui::style::Color;
     use ratatui::{backend::TestBackend, Terminal};
@@ -662,7 +664,12 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
 
-        assert!(screen.contains("new workspace"), "{screen}");
+        assert!(
+            screen.contains(&crate::ui::text::buffer_symbol_form(tr(
+                TranslationKey::NewWorkspace
+            ))),
+            "{screen}"
+        );
         assert!(screen.contains("project"), "{screen}");
     }
 
@@ -837,7 +844,12 @@ mod tests {
             app.view.tab_bar_rect,
             app.view.tab_bar_rect.y,
         );
-        assert!(mode_row.contains("PREFIX"), "{mode_row}");
+        assert!(
+            mode_row.contains(&crate::ui::text::buffer_symbol_form(tr(
+                TranslationKey::ModePrefix
+            ))),
+            "{mode_row}"
+        );
     }
 
     #[test]
@@ -895,7 +907,12 @@ mod tests {
             app.view.terminal_area,
             app.view.terminal_area.y + app.view.terminal_area.height - 1,
         );
-        assert!(mode_row.contains("PREFIX"), "{mode_row}");
+        assert!(
+            mode_row.contains(&crate::ui::text::buffer_symbol_form(tr(
+                TranslationKey::ModePrefix
+            ))),
+            "{mode_row}"
+        );
     }
 
     #[tokio::test]
@@ -1423,7 +1440,9 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol())
             .collect::<String>();
-        assert!(rendered.contains("PREFIX"));
+        assert!(rendered.contains(&crate::ui::text::buffer_symbol_form(tr(
+            TranslationKey::ModePrefix
+        ))));
     }
 
     #[test]
@@ -1433,47 +1452,55 @@ mod tests {
 
         let workspace_tab = groups
             .iter()
-            .find(|(name, _)| *name == "workspaces / tabs")
+            .find(|(name, _)| *name == tr(TranslationKey::WorkspacesTabsGroup))
             .expect("workspace tab group")
             .1
             .clone();
         let panes = groups
             .iter()
-            .find(|(name, _)| *name == "panes")
+            .find(|(name, _)| *name == tr(TranslationKey::PanesGroup))
             .expect("panes group")
             .1
             .clone();
 
+        let unset = tr(TranslationKey::Unset);
         assert!(workspace_tab
             .iter()
-            .any(|(key, label)| key == "unset" && label.as_ref() == "previous workspace"));
+            .any(|(key, label)| key == unset
+                && label.as_ref() == tr(TranslationKey::PreviousWorkspace)));
+        assert!(workspace_tab.iter().any(
+            |(key, label)| key == unset && label.as_ref() == tr(TranslationKey::NextWorkspace)
+        ));
+        assert!(workspace_tab.iter().any(
+            |(key, label)| key == unset && label.as_ref() == tr(TranslationKey::PreviousAgent)
+        ));
         assert!(workspace_tab
             .iter()
-            .any(|(key, label)| key == "unset" && label.as_ref() == "next workspace"));
+            .any(|(key, label)| key == unset && label.as_ref() == tr(TranslationKey::NextAgent)));
+        assert!(
+            workspace_tab
+                .iter()
+                .any(|(key, label)| key == unset
+                    && label.as_ref() == tr(TranslationKey::FocusAgent19))
+        );
         assert!(workspace_tab
             .iter()
-            .any(|(key, label)| key == "unset" && label.as_ref() == "previous agent"));
-        assert!(workspace_tab
-            .iter()
-            .any(|(key, label)| key == "unset" && label.as_ref() == "next agent"));
-        assert!(workspace_tab
-            .iter()
-            .any(|(key, label)| key == "unset" && label.as_ref() == "focus agent 1-9"));
-        assert!(workspace_tab
-            .iter()
-            .any(|(key, label)| key == "unset" && label.as_ref() == "switch workspace 1-9"));
+            .any(|(key, label)| key == unset
+                && label.as_ref() == tr(TranslationKey::SwitchWorkspace19)));
         assert!(panes
             .iter()
-            .any(|(key, label)| key == "prefix+h" && label.as_ref() == "focus pane left"));
+            .any(|(key, label)| key == "prefix+h"
+                && label.as_ref() == tr(TranslationKey::FocusPaneLeft)));
         assert!(panes
             .iter()
-            .any(|(key, label)| key == "prefix+j" && label.as_ref() == "focus pane down"));
+            .any(|(key, label)| key == "prefix+j"
+                && label.as_ref() == tr(TranslationKey::FocusPaneDown)));
         assert!(panes
             .iter()
-            .any(|(key, label)| key == "prefix+k" && label.as_ref() == "focus pane up"));
-        assert!(panes
-            .iter()
-            .any(|(key, label)| key == "prefix+l" && label.as_ref() == "focus pane right"));
+            .any(|(key, label)| key == "prefix+k"
+                && label.as_ref() == tr(TranslationKey::FocusPaneUp)));
+        assert!(panes.iter().any(|(key, label)| key == "prefix+l"
+            && label.as_ref() == tr(TranslationKey::FocusPaneRight)));
     }
 
     #[test]
@@ -1503,16 +1530,15 @@ mod tests {
         let groups = keybind_help_groups(&app);
         let custom = groups
             .iter()
-            .find(|(name, _)| *name == "custom")
+            .find(|(name, _)| *name == tr(TranslationKey::CustomGroup))
             .expect("custom group")
             .1
             .clone();
         assert!(custom
             .iter()
             .any(|(key, label)| key == "prefix+alt+g" && label.as_ref() == "open lazygit"));
-        assert!(custom
-            .iter()
-            .any(|(key, label)| key == "prefix+alt+h" && label.as_ref() == "custom command"));
+        assert!(custom.iter().any(|(key, label)| key == "prefix+alt+h"
+            && label.as_ref() == tr(TranslationKey::CustomCommand)));
 
         let rendered_help = keybind_help_lines(&app)
             .into_iter()
@@ -1521,7 +1547,7 @@ mod tests {
             .collect::<Vec<_>>()
             .join("");
         assert!(rendered_help.contains("open lazygit"));
-        assert!(rendered_help.contains("custom command"));
+        assert!(rendered_help.contains(tr(TranslationKey::CustomCommand)));
     }
 
     #[test]
@@ -1540,18 +1566,18 @@ switch_workspace = "ctrl+1..9"
 
         let workspace_tab = keybind_help_groups(&app)
             .into_iter()
-            .find(|(name, _)| *name == "workspaces / tabs")
+            .find(|(name, _)| *name == tr(TranslationKey::WorkspacesTabsGroup))
             .expect("workspace tab group")
             .1;
 
         let switch_tab_key = workspace_tab
             .iter()
-            .find(|(_, label)| label.as_ref() == "switch tab 1-9")
+            .find(|(_, label)| label.as_ref() == tr(TranslationKey::SwitchTab19))
             .map(|(key, _)| key.as_str())
             .expect("switch tab help entry");
         let switch_workspace_key = workspace_tab
             .iter()
-            .find(|(_, label)| label.as_ref() == "switch workspace 1-9")
+            .find(|(_, label)| label.as_ref() == tr(TranslationKey::SwitchWorkspace19))
             .map(|(key, _)| key.as_str())
             .expect("switch workspace help entry");
 

@@ -12,10 +12,11 @@ use super::sidebar::{
     WorkspaceListEntry,
 };
 use super::status::state_dot;
-use super::text::{display_width_u16, truncate_end};
+use super::text::{display_width, display_width_u16, truncate_end};
 use crate::app::state::{Palette, ToastKind, ToastNotification};
 use crate::app::AppState;
 use crate::detect::AgentState;
+use crate::i18n::{tr, TranslationKey};
 use crate::layout::PaneId;
 use crate::terminal::TerminalRuntimeRegistry;
 
@@ -289,7 +290,7 @@ pub(crate) fn render_mobile_panel(
 
     let areas = mobile_switcher_areas(app);
     frame.render_widget(
-        Paragraph::new(" switch").style(
+        Paragraph::new(format!(" {}", tr(TranslationKey::MobileSwitch))).style(
             Style::default()
                 .fg(p.text)
                 .bg(p.panel_bg)
@@ -321,7 +322,10 @@ fn render_header_status(
     }
     let p = &app.palette;
     let Some(ws) = app.active.and_then(|idx| app.workspaces.get(idx)) else {
-        frame.render_widget(Paragraph::new(" no workspace"), area);
+        frame.render_widget(
+            Paragraph::new(format!(" {}", tr(TranslationKey::NoWorkspace))),
+            area,
+        );
         return;
     };
 
@@ -372,9 +376,14 @@ fn mobile_tab_status(ws: &crate::workspace::Workspace) -> String {
         .tab_display_name(ws.active_tab)
         .unwrap_or_else(|| (ws.active_tab + 1).to_string());
     if ws.tabs.len() <= 1 {
-        format!("tab {tab_label}")
+        format!("{} {tab_label}", tr(TranslationKey::TabPrefix))
     } else {
-        format!("tab {tab_label} · {}/{}", ws.active_tab + 1, ws.tabs.len())
+        format!(
+            "{} {tab_label} · {}/{}",
+            tr(TranslationKey::TabPrefix),
+            ws.active_tab + 1,
+            ws.tabs.len()
+        )
     }
 }
 
@@ -391,7 +400,7 @@ fn render_switch_button(app: &AppState, frame: &mut Frame, area: Rect) {
     }
     let label_y = if area.height > 1 { area.y + 1 } else { area.y };
     frame.render_widget(
-        Paragraph::new("switch")
+        Paragraph::new(tr(TranslationKey::MobileSwitch))
             .style(
                 Style::default()
                     .fg(p.text)
@@ -500,8 +509,16 @@ fn render_mobile_switcher_content(
         let title = app
             .agent_view_override
             .as_ref()
-            .map(|view| format!("agents · {}", view.label.as_deref().unwrap_or("filtered")))
-            .unwrap_or_else(|| "agents".to_string());
+            .map(|view| {
+                format!(
+                    "{} · {}",
+                    tr(TranslationKey::Agents),
+                    view.label
+                        .as_deref()
+                        .unwrap_or(tr(TranslationKey::Filtered))
+                )
+            })
+            .unwrap_or_else(|| tr(TranslationKey::Agents).to_string());
         render_section_title_at(
             frame,
             viewport,
@@ -570,7 +587,7 @@ fn render_mobile_switcher_content(
         content,
         doc_y,
         app.mobile_switcher_scroll,
-        "spaces",
+        tr(TranslationKey::Spaces),
         p,
     );
     doc_y += 1;
@@ -580,7 +597,7 @@ fn render_mobile_switcher_content(
         content,
         doc_y,
         app.mobile_switcher_scroll,
-        "+ new workspace",
+        tr(TranslationKey::NewWorkspaceMobile),
         p,
     );
     doc_y += 1;
@@ -663,7 +680,7 @@ fn render_mobile_switcher_content(
             content,
             doc_y,
             app.mobile_switcher_scroll,
-            "tabs",
+            tr(TranslationKey::Tabs),
             p,
         );
         doc_y += 1;
@@ -673,7 +690,7 @@ fn render_mobile_switcher_content(
             content,
             doc_y,
             app.mobile_switcher_scroll,
-            "+ new tab",
+            tr(TranslationKey::NewTabMobile),
             p,
         );
         doc_y += 1;
@@ -684,7 +701,7 @@ fn render_mobile_switcher_content(
                 .tab_display_name(idx)
                 .unwrap_or_else(|| (idx + 1).to_string());
             let label = if tab.is_auto_named() {
-                format!("tab {display_name}")
+                format!("{} {display_name}", tr(TranslationKey::TabPrefix))
             } else {
                 format!("{} · {display_name}", idx + 1)
             };
@@ -717,7 +734,7 @@ fn render_mobile_switcher_content(
         content,
         doc_y,
         app.mobile_switcher_scroll,
-        "menu",
+        tr(TranslationKey::Menu),
         p,
     );
     doc_y += 1;
@@ -1012,26 +1029,35 @@ enum SummaryTone {
 /// (blocked → done → working → idle). Pure so it can be unit-tested.
 fn agent_summary_segments(counts: GlobalAgentCounts) -> Vec<(String, SummaryTone)> {
     if counts.total() == 0 {
-        return vec![("no agents".to_string(), SummaryTone::Muted)];
+        return vec![(tr(TranslationKey::NoAgents).to_string(), SummaryTone::Muted)];
     }
     if !counts.any_pending() {
-        return vec![("all idle".to_string(), SummaryTone::Muted)];
+        return vec![(tr(TranslationKey::AllIdle).to_string(), SummaryTone::Muted)];
     }
     let mut segments = Vec::new();
     if counts.blocked > 0 {
         segments.push((
-            format!("◉ {} blocked", counts.blocked),
+            format!("◉ {} {}", counts.blocked, tr(TranslationKey::BlockedLabel)),
             SummaryTone::Blocked,
         ));
     }
     if counts.done > 0 {
-        segments.push((format!("● {} done", counts.done), SummaryTone::Done));
+        segments.push((
+            format!("● {} {}", counts.done, tr(TranslationKey::DoneLabel)),
+            SummaryTone::Done,
+        ));
     }
     if counts.working > 0 {
-        segments.push((format!("{} working", counts.working), SummaryTone::Working));
+        segments.push((
+            format!("{} {}", counts.working, tr(TranslationKey::WorkingLabel)),
+            SummaryTone::Working,
+        ));
     }
     if counts.idle > 0 {
-        segments.push((format!("{} idle", counts.idle), SummaryTone::Idle));
+        segments.push((
+            format!("{} {}", counts.idle, tr(TranslationKey::IdleLabel)),
+            SummaryTone::Idle,
+        ));
     }
     segments
 }
@@ -1048,7 +1074,7 @@ fn fit_summary_segments(
     let mut used = 1usize; // leading space
     for (idx, segment) in segments.iter().enumerate() {
         let sep = if idx > 0 { 3 } else { 0 }; // " · "
-        let seg_w = segment.0.chars().count();
+        let seg_w = display_width(&segment.0);
         if used + sep + seg_w > max_width {
             break;
         }
@@ -1091,7 +1117,7 @@ fn agent_summary_line(app: &AppState, p: &Palette, max_width: u16) -> Line<'stat
         } else {
             Style::default().fg(p.overlay1).bg(p.panel_bg)
         };
-        used += text.chars().count();
+        used += display_width(&text);
         spans.push(Span::styled(text, style));
     }
     if truncated && used + 2 <= max_width as usize {
@@ -1108,14 +1134,14 @@ fn mobile_toast_title(toast: &ToastNotification) -> String {
         ToastKind::NeedsAttention => toast
             .title
             .strip_suffix(" needs attention")
-            .map(|agent| format!("{agent} waiting"))
+            .map(|agent| format!("{agent} {}", tr(TranslationKey::WaitingAgent)))
             .unwrap_or_else(|| toast.title.clone()),
         ToastKind::Finished => toast
             .title
             .strip_suffix(" finished")
-            .map(|agent| format!("{agent} done"))
+            .map(|agent| format!("{agent} {}", tr(TranslationKey::DoneAgent)))
             .unwrap_or_else(|| toast.title.clone()),
-        ToastKind::UpdateInstalled => "update ready".to_string(),
+        ToastKind::UpdateInstalled => tr(TranslationKey::UpdateReady).to_string(),
     }
 }
 
@@ -1212,10 +1238,15 @@ mod tests {
             idle: 1,
         };
         let segments = agent_summary_segments(counts);
-        let labels: Vec<&str> = segments.iter().map(|(text, _)| text.as_str()).collect();
+        let labels: Vec<String> = segments.iter().map(|(text, _)| text.clone()).collect();
         assert_eq!(
             labels,
-            vec!["◉ 2 blocked", "● 1 done", "2 working", "1 idle"]
+            vec![
+                format!("◉ 2 {}", tr(TranslationKey::BlockedLabel)),
+                format!("● 1 {}", tr(TranslationKey::DoneLabel)),
+                format!("2 {}", tr(TranslationKey::WorkingLabel)),
+                format!("1 {}", tr(TranslationKey::IdleLabel)),
+            ]
         );
         assert_eq!(segments[0].1, SummaryTone::Blocked);
     }
@@ -1233,7 +1264,10 @@ mod tests {
             .collect();
         assert_eq!(
             labels,
-            vec!["● 1 done".to_string(), "2 working".to_string()]
+            vec![
+                format!("● 1 {}", tr(TranslationKey::DoneLabel)),
+                format!("2 {}", tr(TranslationKey::WorkingLabel)),
+            ]
         );
     }
 
@@ -1245,7 +1279,7 @@ mod tests {
         };
         assert_eq!(
             agent_summary_segments(counts),
-            vec![("all idle".to_string(), SummaryTone::Muted)]
+            vec![(tr(TranslationKey::AllIdle).to_string(), SummaryTone::Muted)]
         );
     }
 
@@ -1258,8 +1292,24 @@ mod tests {
             idle: 1,
         };
         let (shown, truncated) = fit_summary_segments(agent_summary_segments(counts), 24);
-        let labels: Vec<&str> = shown.iter().map(|(text, _)| text.as_str()).collect();
-        assert_eq!(labels, vec!["◉ 2 blocked", "● 1 done"]);
+        let labels: Vec<String> = shown.iter().map(|(text, _)| text.clone()).collect();
+        assert_eq!(
+            labels,
+            vec![
+                format!("◉ 2 {}", tr(TranslationKey::BlockedLabel)),
+                format!("● 1 {}", tr(TranslationKey::DoneLabel)),
+            ]
+        );
+        assert!(truncated);
+    }
+
+    #[test]
+    fn agent_summary_fit_uses_display_width_for_cjk_segments() {
+        let segments = vec![("1 工作中".to_string(), SummaryTone::Working)];
+
+        let (shown, truncated) = fit_summary_segments(segments, 6);
+
+        assert!(shown.is_empty());
         assert!(truncated);
     }
 
@@ -1280,7 +1330,7 @@ mod tests {
     fn agent_summary_reports_no_agents_when_empty() {
         assert_eq!(
             agent_summary_segments(GlobalAgentCounts::default()),
-            vec![("no agents".to_string(), SummaryTone::Muted)]
+            vec![(tr(TranslationKey::NoAgents).to_string(), SummaryTone::Muted)]
         );
     }
 
@@ -1376,14 +1426,20 @@ mod tests {
     fn mobile_agent_detail_includes_tab_context_when_available() {
         let entry = agent_entry(Some("mobile-state"), Some("pi"));
 
-        assert_eq!(mobile_agent_detail(&entry), "  mobile-state · idle · pi");
+        assert_eq!(
+            mobile_agent_detail(&entry),
+            format!("  mobile-state · {} · pi", tr(TranslationKey::IdleLabel))
+        );
     }
 
     #[test]
     fn mobile_agent_detail_keeps_existing_compact_detail_without_tab_context() {
         let entry = agent_entry(None, Some("pi"));
 
-        assert_eq!(mobile_agent_detail(&entry), "  idle · pi");
+        assert_eq!(
+            mobile_agent_detail(&entry),
+            format!("  {} · pi", tr(TranslationKey::IdleLabel))
+        );
     }
 
     #[test]
@@ -1394,7 +1450,10 @@ mod tests {
         assert!(workspace.close_tab(removed_tab));
         workspace.active_tab = 1;
 
-        assert_eq!(mobile_tab_status(&workspace), "tab 2 · 2/2");
+        assert_eq!(
+            mobile_tab_status(&workspace),
+            format!("{} 2 · 2/2", tr(TranslationKey::TabPrefix))
+        );
     }
 
     #[test]
@@ -1428,8 +1487,20 @@ mod tests {
             .map(|x| terminal.backend().buffer()[(x, 10)].symbol())
             .collect::<String>();
 
-        assert!(row.contains("tab 2"), "mobile tab row: {row:?}");
-        assert!(!row.contains("tab 3"), "mobile tab row: {row:?}");
+        assert!(
+            row.contains(&crate::ui::text::buffer_symbol_form(&format!(
+                "{} 2",
+                tr(TranslationKey::TabPrefix)
+            ))),
+            "mobile tab row: {row:?}"
+        );
+        assert!(
+            !row.contains(&crate::ui::text::buffer_symbol_form(&format!(
+                "{} 3",
+                tr(TranslationKey::TabPrefix)
+            ))),
+            "mobile tab row: {row:?}"
+        );
     }
 
     #[cfg(unix)]

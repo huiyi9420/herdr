@@ -149,12 +149,14 @@ impl IntegrationRecommendation {
             || (self.available && self.state == IntegrationStatusKind::NotInstalled)
     }
 
-    pub fn status_label(&self) -> &'static str {
+    /// 返回集成状态的翻译 key，渲染处用 `tr(item.status_label())` 取本地化文案。
+    pub fn status_label(&self) -> crate::i18n::TranslationKey {
+        use crate::i18n::TranslationKey;
         match (self.available, self.state) {
-            (_, IntegrationStatusKind::Current) => "installed",
-            (_, IntegrationStatusKind::Outdated) => "update available",
-            (true, IntegrationStatusKind::NotInstalled) => "available",
-            (false, IntegrationStatusKind::NotInstalled) => "not found",
+            (_, IntegrationStatusKind::Current) => TranslationKey::IntegrationInstalled,
+            (_, IntegrationStatusKind::Outdated) => TranslationKey::IntegrationUpdateAvailable,
+            (true, IntegrationStatusKind::NotInstalled) => TranslationKey::IntegrationAvailable,
+            (false, IntegrationStatusKind::NotInstalled) => TranslationKey::IntegrationNotFound,
         }
     }
 }

@@ -1300,9 +1300,9 @@ impl App {
 
         self.state.integration_install_messages.clear();
         if targets.is_empty() {
-            self.state
-                .integration_install_messages
-                .push("all detected integrations are current".to_string());
+            self.state.integration_install_messages.push(
+                crate::i18n::tr(crate::i18n::TranslationKey::IntegrationsAllCurrent).to_string(),
+            );
             return;
         }
 
@@ -1310,9 +1310,10 @@ impl App {
             let label = crate::integration::integration_target_label(target);
             match crate::integration::install_target(target) {
                 Ok(messages) => {
-                    self.state
-                        .integration_install_messages
-                        .push(format!("installed {label}"));
+                    self.state.integration_install_messages.push(format!(
+                        "{} {label}",
+                        crate::i18n::tr(crate::i18n::TranslationKey::IntegrationInstalled)
+                    ));
                     self.state
                         .integration_install_messages
                         .extend(messages.into_iter().filter(|message| {

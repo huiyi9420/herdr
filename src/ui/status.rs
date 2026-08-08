@@ -24,7 +24,7 @@ pub(crate) fn copy_feedback_rect(
         return Rect::default();
     }
 
-    let content_width = feedback.message.len() as u16 + 4;
+    let content_width = display_width_u16(&feedback.message) + 4;
     let width = content_width.min(area.width);
     let height = 3u16.min(area.height);
     let x = match position {
@@ -204,12 +204,14 @@ pub(super) fn state_dot(state: AgentState, seen: bool, p: &Palette) -> (&'static
 }
 
 pub(super) fn state_label(state: AgentState, seen: bool) -> &'static str {
+    use crate::i18n::{tr, TranslationKey};
+
     match (state, seen) {
-        (AgentState::Blocked, _) => "blocked",
-        (AgentState::Working, _) => "working",
-        (AgentState::Idle, false) => "done",
-        (AgentState::Idle, true) => "idle",
-        (AgentState::Unknown, _) => "idle",
+        (AgentState::Blocked, _) => tr(TranslationKey::BlockedLabel),
+        (AgentState::Working, _) => tr(TranslationKey::WorkingLabel),
+        (AgentState::Idle, false) => tr(TranslationKey::DoneLabel),
+        (AgentState::Idle, true) => tr(TranslationKey::IdleLabel),
+        (AgentState::Unknown, _) => tr(TranslationKey::IdleLabel),
     }
 }
 
@@ -322,5 +324,17 @@ mod tests {
             bottom_center.x,
             area.x + area.width.saturating_sub(bottom_center.width) / 2
         );
+    }
+
+    #[test]
+    fn copy_feedback_rect_uses_display_width_for_cjk_message() {
+        let area = Rect::new(0, 0, 100, 20);
+        let feedback = CopyFeedback {
+            message: "已复制到剪贴板".to_string(),
+        };
+
+        let rect = copy_feedback_rect(area, &feedback, 0, ToastClipboardPosition::TopRight);
+
+        assert_eq!(rect.width, display_width_u16(&feedback.message) + 4);
     }
 }

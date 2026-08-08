@@ -67,6 +67,7 @@ mod detect;
 mod events;
 mod ghostty;
 mod handoff_runtime;
+mod i18n;
 mod input;
 mod integration;
 mod ipc;
@@ -478,6 +479,7 @@ where
 }
 
 fn main() -> io::Result<()> {
+    crate::i18n::init();
     let raw_args: Vec<String> = match args_as_utf8(std::env::args_os()) {
         Ok(args) => args,
         Err(err) => {

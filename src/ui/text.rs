@@ -4,6 +4,21 @@ pub(crate) fn display_width(text: &str) -> usize {
     UnicodeWidthStr::width(text)
 }
 
+/// 测试辅助：把逻辑字符串展开为 TestBackend buffer 的 symbol 流形式。
+///
+/// ratatui 渲染宽字符时，首格放字符本身，其后的占位格 symbol 为空格。
+#[cfg(test)]
+pub(crate) fn buffer_symbol_form(text: &str) -> String {
+    let mut output = String::with_capacity(text.len());
+    for ch in text.chars() {
+        output.push(ch);
+        for _ in 1..UnicodeWidthChar::width(ch).unwrap_or(0) {
+            output.push(' ');
+        }
+    }
+    output
+}
+
 pub(crate) fn display_width_u16(text: &str) -> u16 {
     display_width(text).min(u16::MAX as usize) as u16
 }

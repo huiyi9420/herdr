@@ -563,8 +563,9 @@ impl AppState {
             let status_label = terminal
                 .map(|terminal| terminal.effective_presentation().state_labels)
                 .and_then(|labels| labels.get(state_label_text(state, pane.seen)).cloned());
-            let status = status_label
-                .or_else(|| agent_label.map(|_| state_label_text(state, pane.seen).to_string()));
+            let status = status_label.or_else(|| {
+                agent_label.map(|_| navigator_state_label(state, pane.seen).to_string())
+            });
             let meta = match (agent_label, status.as_deref()) {
                 (Some(agent_label), Some(status)) => format!("{agent_label} · {status}"),
                 (Some(agent_label), None) => agent_label.to_string(),
@@ -883,6 +884,8 @@ fn launch_label(argv: Option<&Vec<String>>) -> Option<String> {
         .or_else(|| Some(command.clone()))
 }
 
+/// agent 状态到 `state_labels` 查找键的映射。
+/// 注意：返回的是配置/检测清单中的查找键（协议标识符），不是 UI 文案，不参与 i18n。
 fn state_label_text(state: AgentState, seen: bool) -> &'static str {
     match (state, seen) {
         (AgentState::Blocked, _) => "blocked",
@@ -890,6 +893,19 @@ fn state_label_text(state: AgentState, seen: bool) -> &'static str {
         (AgentState::Idle, false) => "done",
         (AgentState::Idle, true) => "idle",
         (AgentState::Unknown, _) => "unknown",
+    }
+}
+
+/// navigator meta 中的 agent 状态显示文案（用户可见，走 i18n）。
+/// 与 `state_label_text` 的区别：这是显示层 fallback，不是查找键。
+fn navigator_state_label(state: AgentState, seen: bool) -> &'static str {
+    use crate::i18n::{tr, TranslationKey};
+    match (state, seen) {
+        (AgentState::Blocked, _) => tr(TranslationKey::BlockedLabel),
+        (AgentState::Working, _) => tr(TranslationKey::WorkingLabel),
+        (AgentState::Idle, false) => tr(TranslationKey::DoneLabel),
+        (AgentState::Idle, true) => tr(TranslationKey::IdleLabel),
+        (AgentState::Unknown, _) => tr(TranslationKey::UnknownLabel),
     }
 }
 

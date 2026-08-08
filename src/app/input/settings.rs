@@ -7,6 +7,8 @@ use crate::{
         App, Mode,
     },
     config::ToastDelivery,
+    i18n::tr,
+    ui::display_width_u16,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -304,7 +306,7 @@ impl AppState {
             } else {
                 0
             };
-            let width = section.label().len() as u16 + 2 + badge_width;
+            let width = display_width_u16(tr(section.label())) + 2 + badge_width;
             if col >= x && col < x + width {
                 return Some(*section);
             }
@@ -597,10 +599,10 @@ mod tests {
                     } else {
                         0
                     };
-                    section.label().len() as u16 + 3 + badge_width
+                    display_width_u16(tr(section.label())) + 3 + badge_width
                 })
                 .sum::<u16>();
-        let dotted_width = SettingsSection::Integrations.label().len() as u16 + 4;
+        let dotted_width = display_width_u16(tr(SettingsSection::Integrations.label())) + 4;
 
         assert_eq!(
             state.settings_tab_at(integrations_x + dotted_width - 1, tab_y),
