@@ -63,6 +63,7 @@ pub(crate) use self::tab_surface::{
     compute_tab_surface, render_tab_surface, resize_tab_surface, TabSurfaceLayout,
 };
 use self::tabs::render_tab_bar;
+pub(crate) use self::text::display_width_u16;
 pub(crate) use self::{
     dialogs::{
         confirm_close_button_rects, confirm_close_popup_rect, new_linked_worktree_button_rects,
@@ -104,15 +105,6 @@ use crate::app::{AppState, Mode};
 use crate::terminal::TerminalRuntimeRegistry;
 
 const COLLAPSED_WIDTH: u16 = 4; // num + space + dot + separator
-
-// Braille spinner frames — smooth rotation
-const SPINNERS: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-
-/// Map spinner_tick (incremented every frame at ~60fps) to a spinner frame.
-/// We want ~8 updates/sec so divide by 8.
-pub(super) fn spinner_frame(tick: u32) -> &'static str {
-    SPINNERS[(tick as usize / 8) % SPINNERS.len()]
-}
 
 /// Compute view geometry and reconcile pane sizes.
 /// Called before render to separate mutation from drawing.
@@ -204,9 +196,18 @@ fn desktop_tab_bar_and_terminal_area(
 ) -> (Rect, Rect) {
     let hide_single_tab_bar = app.hide_tab_bar_when_single_tab && ws.tabs.len() == 1;
     if !hide_single_tab_bar && main_area.height > 1 {
-        let [tab_bar_rect, terminal_area] =
-            Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(main_area);
-        (tab_bar_rect, terminal_area)
+        match app.tab_bar_position {
+            crate::config::TabBarPositionConfig::Top => {
+                let [tab_bar_rect, terminal_area] =
+                    Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(main_area);
+                (tab_bar_rect, terminal_area)
+            }
+            crate::config::TabBarPositionConfig::Bottom => {
+                let [terminal_area, tab_bar_rect] =
+                    Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).areas(main_area);
+                (tab_bar_rect, terminal_area)
+            }
+        }
     } else {
         (Rect::default(), main_area)
     }
@@ -401,7 +402,7 @@ pub fn render_with_runtime_registry(
     let tab_bar_area = app.view.tab_bar_rect;
     let terminal_area = app.view.terminal_area;
 
-    render_working_animation(app, terminal_runtimes, frame);
+    render_navigation_chrome(app, terminal_runtimes, frame);
     if app.view.layout != ViewLayout::Mobile {
         render_tab_bar(app, frame, tab_bar_area);
     }
@@ -419,6 +420,15 @@ pub fn render_with_runtime_registry(
     render_notifications(app, frame, terminal_area);
     render_popup_pane(app, terminal_runtimes, frame, terminal_area);
 
+    let mode_bar_area = if app.view.layout == ViewLayout::Desktop
+        && app.tab_bar_position == crate::config::TabBarPositionConfig::Bottom
+        && tab_bar_area.height > 0
+    {
+        tab_bar_area
+    } else {
+        terminal_area
+    };
+
     match app.mode {
         Mode::Onboarding => render_onboarding_overlay(app, frame, frame.area()),
         Mode::ReleaseNotes => render_release_notes_overlay(app, frame, frame.area()),
@@ -426,10 +436,10 @@ pub fn render_with_runtime_registry(
         Mode::Navigate if app.view.layout == ViewLayout::Mobile => {
             render_mobile_panel(app, terminal_runtimes, frame, frame.area())
         }
-        Mode::Navigate => render_navigate_overlay(app, frame, terminal_area),
-        Mode::Prefix => render_prefix_overlay(app, frame, terminal_area),
-        Mode::Copy => render_copy_mode_overlay(app, frame, terminal_area),
-        Mode::Resize => render_resize_overlay(app, frame, terminal_area),
+        Mode::Navigate => render_navigate_overlay(app, frame, mode_bar_area),
+        Mode::Prefix => render_prefix_overlay(app, frame, mode_bar_area),
+        Mode::Copy => render_copy_mode_overlay(app, frame, mode_bar_area),
+        Mode::Resize => render_resize_overlay(app, frame, mode_bar_area),
         Mode::ConfirmClose => {
             render_confirm_close_overlay(app, terminal_runtimes, frame, terminal_area)
         }
@@ -452,7 +462,7 @@ pub fn render_with_runtime_registry(
     }
 }
 
-pub(crate) fn render_working_animation(
+fn render_navigation_chrome(
     app: &AppState,
     terminal_runtimes: &TerminalRuntimeRegistry,
     frame: &mut Frame,
@@ -589,6 +599,7 @@ mod tests {
     use super::keybind_help::keybind_help_groups;
     use super::scrollbar::scrollbar_thumb;
     use super::*;
+    use crate::i18n::{tr, TranslationKey};
     use crate::{app::state::ViewLayout, layout::PaneInfo, workspace::Workspace};
     use ratatui::style::Color;
     use ratatui::{backend::TestBackend, Terminal};
@@ -653,7 +664,12 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
 
-        assert!(screen.contains("new workspace"), "{screen}");
+        assert!(
+            screen.contains(&crate::ui::text::buffer_symbol_form(tr(
+                TranslationKey::NewWorkspace
+            ))),
+            "{screen}"
+        );
         assert!(screen.contains("project"), "{screen}");
     }
 
@@ -803,6 +819,40 @@ mod tests {
     }
 
     #[test]
+    fn desktop_tab_bar_position_controls_geometry_and_mode_bar_placement() {
+        let mut app = crate::app::state::AppState::test_new();
+        app.workspaces = vec![Workspace::test_new("one")];
+        app.active = Some(0);
+        app.selected = 0;
+        app.mode = Mode::Prefix;
+
+        compute_view(&mut app, Rect::new(0, 0, 80, 20));
+        assert_eq!(app.view.tab_bar_rect, Rect::new(26, 0, 54, 1));
+        assert_eq!(app.view.terminal_area, Rect::new(26, 1, 54, 19));
+
+        app.tab_bar_position = crate::config::TabBarPositionConfig::Bottom;
+        compute_view(&mut app, Rect::new(0, 0, 80, 20));
+        assert_eq!(app.view.terminal_area, Rect::new(26, 0, 54, 19));
+        assert_eq!(app.view.tab_bar_rect, Rect::new(26, 19, 54, 1));
+        assert!(app.view.tab_hit_areas.iter().all(|rect| rect.y == 19));
+        assert_eq!(app.view.new_tab_hit_area.y, 19);
+
+        let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        terminal.draw(|frame| render(&app, frame)).unwrap();
+        let mode_row = buffer_row_text(
+            terminal.backend().buffer(),
+            app.view.tab_bar_rect,
+            app.view.tab_bar_rect.y,
+        );
+        assert!(
+            mode_row.contains(&crate::ui::text::buffer_symbol_form(tr(
+                TranslationKey::ModePrefix
+            ))),
+            "{mode_row}"
+        );
+    }
+
+    #[test]
     fn hide_tab_bar_when_single_tab_toggles_geometry_with_tab_count() {
         let mut app = crate::app::state::AppState::test_new();
         app.hide_tab_bar_when_single_tab = true;
@@ -834,6 +884,35 @@ mod tests {
         assert_eq!(app.view.tab_bar_rect, Rect::default());
         assert!(app.view.tab_hit_areas.is_empty());
         assert_eq!(app.view.new_tab_hit_area, Rect::default());
+    }
+
+    #[test]
+    fn bottom_tab_bar_still_hides_when_single_tab() {
+        let mut app = crate::app::state::AppState::test_new();
+        app.hide_tab_bar_when_single_tab = true;
+        app.tab_bar_position = crate::config::TabBarPositionConfig::Bottom;
+        app.workspaces = vec![Workspace::test_new("one")];
+        app.active = Some(0);
+        app.selected = 0;
+        app.mode = Mode::Prefix;
+
+        compute_view(&mut app, Rect::new(0, 0, 80, 20));
+        assert_eq!(app.view.tab_bar_rect, Rect::default());
+        assert_eq!(app.view.terminal_area, Rect::new(26, 0, 54, 20));
+
+        let mut terminal = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        terminal.draw(|frame| render(&app, frame)).unwrap();
+        let mode_row = buffer_row_text(
+            terminal.backend().buffer(),
+            app.view.terminal_area,
+            app.view.terminal_area.y + app.view.terminal_area.height - 1,
+        );
+        assert!(
+            mode_row.contains(&crate::ui::text::buffer_symbol_form(tr(
+                TranslationKey::ModePrefix
+            ))),
+            "{mode_row}"
+        );
     }
 
     #[tokio::test]
@@ -1361,7 +1440,9 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol())
             .collect::<String>();
-        assert!(rendered.contains("PREFIX"));
+        assert!(rendered.contains(&crate::ui::text::buffer_symbol_form(tr(
+            TranslationKey::ModePrefix
+        ))));
     }
 
     #[test]
@@ -1371,47 +1452,55 @@ mod tests {
 
         let workspace_tab = groups
             .iter()
-            .find(|(name, _)| *name == "workspaces / tabs")
+            .find(|(name, _)| *name == tr(TranslationKey::WorkspacesTabsGroup))
             .expect("workspace tab group")
             .1
             .clone();
         let panes = groups
             .iter()
-            .find(|(name, _)| *name == "panes")
+            .find(|(name, _)| *name == tr(TranslationKey::PanesGroup))
             .expect("panes group")
             .1
             .clone();
 
+        let unset = tr(TranslationKey::Unset);
         assert!(workspace_tab
             .iter()
-            .any(|(key, label)| key == "unset" && label.as_ref() == "previous workspace"));
+            .any(|(key, label)| key == unset
+                && label.as_ref() == tr(TranslationKey::PreviousWorkspace)));
+        assert!(workspace_tab.iter().any(
+            |(key, label)| key == unset && label.as_ref() == tr(TranslationKey::NextWorkspace)
+        ));
+        assert!(workspace_tab.iter().any(
+            |(key, label)| key == unset && label.as_ref() == tr(TranslationKey::PreviousAgent)
+        ));
         assert!(workspace_tab
             .iter()
-            .any(|(key, label)| key == "unset" && label.as_ref() == "next workspace"));
+            .any(|(key, label)| key == unset && label.as_ref() == tr(TranslationKey::NextAgent)));
+        assert!(
+            workspace_tab
+                .iter()
+                .any(|(key, label)| key == unset
+                    && label.as_ref() == tr(TranslationKey::FocusAgent19))
+        );
         assert!(workspace_tab
             .iter()
-            .any(|(key, label)| key == "unset" && label.as_ref() == "previous agent"));
-        assert!(workspace_tab
-            .iter()
-            .any(|(key, label)| key == "unset" && label.as_ref() == "next agent"));
-        assert!(workspace_tab
-            .iter()
-            .any(|(key, label)| key == "unset" && label.as_ref() == "focus agent 1-9"));
-        assert!(workspace_tab
-            .iter()
-            .any(|(key, label)| key == "unset" && label.as_ref() == "switch workspace 1-9"));
+            .any(|(key, label)| key == unset
+                && label.as_ref() == tr(TranslationKey::SwitchWorkspace19)));
         assert!(panes
             .iter()
-            .any(|(key, label)| key == "prefix+h" && label.as_ref() == "focus pane left"));
+            .any(|(key, label)| key == "prefix+h"
+                && label.as_ref() == tr(TranslationKey::FocusPaneLeft)));
         assert!(panes
             .iter()
-            .any(|(key, label)| key == "prefix+j" && label.as_ref() == "focus pane down"));
+            .any(|(key, label)| key == "prefix+j"
+                && label.as_ref() == tr(TranslationKey::FocusPaneDown)));
         assert!(panes
             .iter()
-            .any(|(key, label)| key == "prefix+k" && label.as_ref() == "focus pane up"));
-        assert!(panes
-            .iter()
-            .any(|(key, label)| key == "prefix+l" && label.as_ref() == "focus pane right"));
+            .any(|(key, label)| key == "prefix+k"
+                && label.as_ref() == tr(TranslationKey::FocusPaneUp)));
+        assert!(panes.iter().any(|(key, label)| key == "prefix+l"
+            && label.as_ref() == tr(TranslationKey::FocusPaneRight)));
     }
 
     #[test]
@@ -1441,16 +1530,15 @@ mod tests {
         let groups = keybind_help_groups(&app);
         let custom = groups
             .iter()
-            .find(|(name, _)| *name == "custom")
+            .find(|(name, _)| *name == tr(TranslationKey::CustomGroup))
             .expect("custom group")
             .1
             .clone();
         assert!(custom
             .iter()
             .any(|(key, label)| key == "prefix+alt+g" && label.as_ref() == "open lazygit"));
-        assert!(custom
-            .iter()
-            .any(|(key, label)| key == "prefix+alt+h" && label.as_ref() == "custom command"));
+        assert!(custom.iter().any(|(key, label)| key == "prefix+alt+h"
+            && label.as_ref() == tr(TranslationKey::CustomCommand)));
 
         let rendered_help = keybind_help_lines(&app)
             .into_iter()
@@ -1459,7 +1547,7 @@ mod tests {
             .collect::<Vec<_>>()
             .join("");
         assert!(rendered_help.contains("open lazygit"));
-        assert!(rendered_help.contains("custom command"));
+        assert!(rendered_help.contains(tr(TranslationKey::CustomCommand)));
     }
 
     #[test]
@@ -1478,18 +1566,18 @@ switch_workspace = "ctrl+1..9"
 
         let workspace_tab = keybind_help_groups(&app)
             .into_iter()
-            .find(|(name, _)| *name == "workspaces / tabs")
+            .find(|(name, _)| *name == tr(TranslationKey::WorkspacesTabsGroup))
             .expect("workspace tab group")
             .1;
 
         let switch_tab_key = workspace_tab
             .iter()
-            .find(|(_, label)| label.as_ref() == "switch tab 1-9")
+            .find(|(_, label)| label.as_ref() == tr(TranslationKey::SwitchTab19))
             .map(|(key, _)| key.as_str())
             .expect("switch tab help entry");
         let switch_workspace_key = workspace_tab
             .iter()
-            .find(|(_, label)| label.as_ref() == "switch workspace 1-9")
+            .find(|(_, label)| label.as_ref() == tr(TranslationKey::SwitchWorkspace19))
             .map(|(key, _)| key.as_str())
             .expect("switch workspace help entry");
 

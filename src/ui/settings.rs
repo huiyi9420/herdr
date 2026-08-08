@@ -11,11 +11,9 @@ use super::widgets::{
     render_action_button, render_modal_choice_list, render_panel_shell, ActionButtonSpec,
 };
 use crate::{
-    app::{
-        state::{ExperimentSetting, Palette},
-        AppState,
-    },
+    app::{state::Palette, AppState},
     config::ToastDelivery,
+    i18n::{tr, TranslationKey},
 };
 
 pub(crate) const SETTINGS_POPUP_WIDTH: u16 = 76;
@@ -60,7 +58,7 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
 
     frame.render_widget(
         Paragraph::new(Line::from(vec![Span::styled(
-            " settings",
+            format!(" {}", tr(TranslationKey::Settings)),
             Style::default().fg(p.text).add_modifier(Modifier::BOLD),
         )])),
         header_rows[0],
@@ -73,10 +71,10 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
                     "● ",
                     Style::default().fg(p.accent).add_modifier(Modifier::BOLD),
                 ),
-                Span::raw(section.label()),
+                Span::raw(tr(section.label())),
             ])
         } else {
-            Line::from(section.label())
+            Line::from(tr(section.label()))
         }
     });
     let tabs = Tabs::new(tab_labels)
@@ -114,8 +112,8 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
                 frame,
                 content_area,
                 p,
-                "sound alerts",
-                "play sounds when agents change state in background",
+                tr(TranslationKey::SoundAlerts),
+                tr(TranslationKey::SoundAlertsDesc),
                 app.sound_enabled(),
                 app.settings.list.selected,
             );
@@ -124,13 +122,16 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
             render_modal_choice_list(
                 frame,
                 content_area,
-                "notification popups",
-                "choose where background popup notifications should appear",
+                tr(TranslationKey::NotificationPopups),
+                tr(TranslationKey::NotificationPopupsDesc),
                 &[
-                    ("off", ToastDelivery::Off),
-                    ("inside herdr", ToastDelivery::Herdr),
-                    ("via terminal", ToastDelivery::Terminal),
-                    ("via system", ToastDelivery::System),
+                    (tr(TranslationKey::ToggleOff), ToastDelivery::Off),
+                    (tr(TranslationKey::ToastInsideHerdr), ToastDelivery::Herdr),
+                    (
+                        tr(TranslationKey::ToastViaTerminal),
+                        ToastDelivery::Terminal,
+                    ),
+                    (tr(TranslationKey::ToastViaSystem), ToastDelivery::System),
                 ],
                 app.toast_delivery(),
                 app.settings.list.selected,
@@ -143,14 +144,11 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
                 frame,
                 content_area,
                 p,
-                "agent border labels",
-                "show detected agent names in split pane borders",
+                tr(TranslationKey::AgentBorderLabels),
+                tr(TranslationKey::AgentBorderLabelsDesc),
                 app.agent_border_labels_enabled(),
                 app.settings.list.selected,
             );
-        }
-        SettingsSection::Experiments => {
-            render_settings_experiments(app, frame, content_area);
         }
         SettingsSection::Integrations => {
             render_settings_integrations(app, frame, content_area);
@@ -180,7 +178,7 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
             frame,
             close_rect,
             Some("esc"),
-            "close",
+            tr(TranslationKey::Close),
             Style::default()
                 .fg(p.text)
                 .bg(p.surface0)
@@ -190,9 +188,15 @@ pub(super) fn render_settings_overlay(app: &AppState, frame: &mut Frame, area: R
         frame.render_widget(
             Paragraph::new(Line::from(vec![
                 Span::styled(" ↑↓", Style::default().fg(p.overlay0)),
-                Span::styled(" select  ", Style::default().fg(p.overlay1)),
+                Span::styled(
+                    format!(" {}  ", tr(TranslationKey::Select)),
+                    Style::default().fg(p.overlay1),
+                ),
                 Span::styled("tab", Style::default().fg(p.overlay0)),
-                Span::styled(" section", Style::default().fg(p.overlay1)),
+                Span::styled(
+                    format!(" {}", tr(TranslationKey::SectionHint)),
+                    Style::default().fg(p.overlay1),
+                ),
             ])),
             footer_rows[0],
         );
@@ -203,8 +207,8 @@ pub(crate) fn settings_primary_button_label(
     section: crate::app::state::SettingsSection,
 ) -> &'static str {
     match section {
-        crate::app::state::SettingsSection::Integrations => "install",
-        _ => "apply",
+        crate::app::state::SettingsSection::Integrations => tr(TranslationKey::Install),
+        _ => tr(TranslationKey::Apply),
     }
 }
 
@@ -228,7 +232,7 @@ pub(crate) fn settings_button_rects(
             inner,
             &[ActionButtonSpec {
                 hint: Some("esc"),
-                label: "close",
+                label: tr(TranslationKey::Close),
             }],
             2,
             inner.height.saturating_sub(1),
@@ -245,7 +249,7 @@ pub(crate) fn settings_button_rects(
             },
             ActionButtonSpec {
                 hint: Some("esc"),
-                label: "close",
+                label: tr(TranslationKey::Close),
             },
         ],
         2,
@@ -273,14 +277,14 @@ fn integrations_footer_paragraph(app: &AppState) -> Paragraph<'static> {
             .iter()
             .any(crate::integration::IntegrationRecommendation::needs_install)
         {
-            " press install to add available or outdated integrations"
+            format!(" {}", tr(TranslationKey::IntegrationsHintInstall))
         } else if found_any {
-            " all detected integrations are installed"
+            format!(" {}", tr(TranslationKey::IntegrationsAllInstalled))
         } else {
-            " no supported agent CLIs found on PATH"
+            format!(" {}", tr(TranslationKey::IntegrationsNoneFound))
         };
         footer_lines.push(Line::from(Span::styled(
-            hint.to_string(),
+            hint,
             Style::default().fg(p.overlay1),
         )));
     }
@@ -308,16 +312,14 @@ fn render_settings_integrations(app: &AppState, frame: &mut Frame, area: Rect) {
     .areas::<6>(area);
 
     frame.render_widget(
-        Paragraph::new("agent integrations")
+        Paragraph::new(tr(TranslationKey::AgentIntegrations))
             .style(Style::default().fg(p.text).add_modifier(Modifier::BOLD)),
         rows[0],
     );
     frame.render_widget(
-        Paragraph::new(
-            "let agents report state directly instead of relying only on process detection",
-        )
-        .style(Style::default().fg(p.overlay1))
-        .wrap(ratatui::widgets::Wrap { trim: false }),
+        Paragraph::new(tr(TranslationKey::AgentIntegrationsDesc))
+            .style(Style::default().fg(p.overlay1))
+            .wrap(ratatui::widgets::Wrap { trim: false }),
         rows[1],
     );
 
@@ -345,13 +347,13 @@ fn render_settings_integrations(app: &AppState, frame: &mut Frame, area: Rect) {
                 format!("{:<9}", item.label),
                 Style::default().fg(p.subtext0),
             ),
-            Span::styled(item.status_label(), Style::default().fg(p.overlay1)),
+            Span::styled(tr(item.status_label()), Style::default().fg(p.overlay1)),
         ]));
     }
 
     if lines.is_empty() {
         lines.push(Line::from(Span::styled(
-            " no integration targets available",
+            format!(" {}", tr(TranslationKey::NoIntegrationTargets)),
             Style::default().fg(p.overlay1),
         )));
     }
@@ -405,127 +407,13 @@ fn render_settings_toggle(
         area,
         title,
         description,
-        &[("on", true), ("off", false)],
+        &[
+            (tr(TranslationKey::ToggleOn), true),
+            (tr(TranslationKey::ToggleOff), false),
+        ],
         current_value,
         selected_idx,
         p,
         1,
     );
-}
-
-fn render_settings_experiments(app: &AppState, frame: &mut Frame, area: Rect) {
-    let p = &app.palette;
-    let [desc_area, _, list_area] = Layout::vertical([
-        Constraint::Length(2),
-        Constraint::Length(1),
-        Constraint::Min(1),
-    ])
-    .areas::<3>(area);
-
-    super::widgets::render_modal_description(
-        frame,
-        desc_area,
-        "optional features that are off by default",
-        Style::default().fg(p.overlay1),
-    );
-
-    for (idx, setting) in ExperimentSetting::ALL.iter().copied().enumerate() {
-        let marker = if setting.enabled(app) { "[✓]" } else { "[ ]" };
-        let style = if app.settings.list.selected == idx {
-            Style::default()
-                .bg(p.surface0)
-                .fg(p.text)
-                .add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(p.subtext0)
-        };
-        let row = Rect::new(list_area.x, list_area.y + idx as u16, list_area.width, 1);
-        frame.render_widget(
-            Paragraph::new(format!(" {} {marker}", setting.label())).style(style),
-            row,
-        );
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::app::{state::SettingsSection, Mode};
-    use ratatui::{backend::TestBackend, Terminal};
-
-    #[test]
-    fn experiments_pane_history_uses_settings_checkmark_marker() {
-        let mut app = AppState::test_new();
-        app.pane_history_persistence = true;
-        app.settings.section = SettingsSection::Experiments;
-        app.settings.list.selected = 0;
-        app.mode = Mode::Settings;
-
-        let mut terminal =
-            Terminal::new(TestBackend::new(80, 24)).expect("test terminal should initialize");
-        terminal
-            .draw(|frame| render_settings_overlay(&app, frame, Rect::new(0, 0, 80, 24)))
-            .expect("settings overlay should render");
-
-        let rendered = terminal
-            .backend()
-            .buffer()
-            .content()
-            .iter()
-            .map(|cell| cell.symbol())
-            .collect::<String>();
-
-        assert!(rendered.contains("pane screen history [✓]"));
-        assert!(!rendered.contains("[x]"));
-    }
-
-    #[test]
-    fn experiments_pane_history_keeps_empty_checkbox_marker_when_disabled() {
-        let mut app = AppState::test_new();
-        app.pane_history_persistence = false;
-        app.settings.section = SettingsSection::Experiments;
-        app.settings.list.selected = 0;
-        app.mode = Mode::Settings;
-
-        let mut terminal =
-            Terminal::new(TestBackend::new(80, 24)).expect("test terminal should initialize");
-        terminal
-            .draw(|frame| render_settings_overlay(&app, frame, Rect::new(0, 0, 80, 24)))
-            .expect("settings overlay should render");
-
-        let rendered = terminal
-            .backend()
-            .buffer()
-            .content()
-            .iter()
-            .map(|cell| cell.symbol())
-            .collect::<String>();
-
-        assert!(rendered.contains("pane screen history [ ]"));
-    }
-
-    #[test]
-    fn experiments_renders_switch_ascii_input_source_row() {
-        let mut app = AppState::test_new();
-        app.switch_ascii_input_source_in_prefix = true;
-        app.settings.section = SettingsSection::Experiments;
-        app.settings.list.selected = 1;
-        app.mode = Mode::Settings;
-
-        let mut terminal =
-            Terminal::new(TestBackend::new(80, 24)).expect("test terminal should initialize");
-        terminal
-            .draw(|frame| render_settings_overlay(&app, frame, Rect::new(0, 0, 80, 24)))
-            .expect("settings overlay should render");
-
-        let rendered = terminal
-            .backend()
-            .buffer()
-            .content()
-            .iter()
-            .map(|cell| cell.symbol())
-            .collect::<String>();
-
-        assert!(rendered.contains("switch to ascii input source in prefix (macOS/Windows) [✓]"));
-    }
 }

@@ -8,15 +8,18 @@ use ratatui::{
 
 use super::widgets::{panel_contrast_fg, render_panel_shell};
 use crate::app::AppState;
+use crate::i18n::{tr, TranslationKey};
 
 fn prefix_rhs_label(bindings: &crate::config::ActionKeybinds) -> String {
     bindings
         .prefix_rhs_label()
-        .unwrap_or_else(|| "unset".to_string())
+        .unwrap_or_else(|| tr(TranslationKey::Unset).to_string())
 }
 
 fn keybind_label(bindings: &crate::config::ActionKeybinds) -> String {
-    bindings.label().unwrap_or_else(|| "unset".to_string())
+    bindings
+        .label()
+        .unwrap_or_else(|| tr(TranslationKey::Unset).to_string())
 }
 
 fn render_bottom_bar(frame: &mut Frame, area: Rect, line: Line<'_>, bg: ratatui::style::Color) {
@@ -43,16 +46,16 @@ pub(super) fn render_prefix_overlay(app: &AppState, frame: &mut Frame, area: Rec
     let prefix = crate::config::format_key_combo((app.prefix_code, app.prefix_mods));
 
     let line = Line::from(vec![
-        Span::styled(" PREFIX ", mode_style),
+        Span::styled(format!(" {} ", tr(TranslationKey::ModePrefix)), mode_style),
         Span::raw(" "),
         Span::styled("esc", key),
-        Span::styled(" cancel  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::Cancel)), dim),
         Span::styled(prefix, key),
-        Span::styled(" send prefix  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::SendPrefix)), dim),
         Span::styled(workspace_picker, key),
-        Span::styled(" workspace nav  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::WorkspaceNavShort)), dim),
         Span::styled(help, key),
-        Span::styled(" keybinds", dim),
+        Span::styled(format!(" {}", tr(TranslationKey::KeybindsLabel)), dim),
     ]);
 
     let overlay_y = area.y + area.height.saturating_sub(1);
@@ -79,18 +82,21 @@ pub(super) fn render_copy_mode_overlay(app: &AppState, frame: &mut Frame, area: 
             crate::app::state::CopyModeSearchDirection::Backward => "?",
         };
         Line::from(vec![
-            Span::styled(" COPY ", mode_style),
+            Span::styled(format!(" {} ", tr(TranslationKey::ModeCopy)), mode_style),
             Span::raw(" "),
             Span::styled(marker, key),
             Span::styled(prompt.query.clone(), Style::default().fg(app.palette.text)),
             Span::styled("█", key),
-            Span::styled("  enter search  esc cancel", dim),
+            Span::styled(
+                format!("  {}", tr(TranslationKey::EnterSearchEscCancel)),
+                dim,
+            ),
         ])
     } else {
         let select = if copy_mode.selection.is_some() {
-            "selecting"
+            tr(TranslationKey::Selecting)
         } else {
-            "select"
+            tr(TranslationKey::Select)
         };
         let match_status = copy_mode
             .search
@@ -100,23 +106,26 @@ pub(super) fn render_copy_mode_overlay(app: &AppState, frame: &mut Frame, area: 
             .unwrap_or_default();
         let (exit_keys, exit_label) =
             if copy_mode.search.query.is_empty() && copy_mode.selection.is_none() {
-                ("q/esc", " exit")
+                ("q/esc", format!(" {}", tr(TranslationKey::Exit)))
             } else {
-                ("esc", " clear  q exit")
+                ("esc", format!(" {}", tr(TranslationKey::ClearQExit)))
             };
         Line::from(vec![
-            Span::styled(" COPY ", mode_style),
+            Span::styled(format!(" {} ", tr(TranslationKey::ModeCopy)), mode_style),
             Span::raw(" "),
             Span::styled("h/j/k/l w/b/e { }", key),
-            Span::styled(" move  ", dim),
+            Span::styled(format!(" {}  ", tr(TranslationKey::Move)), dim),
             Span::styled("/ ?", key),
-            Span::styled(" search  ", dim),
+            Span::styled(format!(" {}  ", tr(TranslationKey::SearchLabel)), dim),
             Span::styled("n/N", key),
-            Span::styled(format!(" repeat{match_status}  "), dim),
+            Span::styled(
+                format!(" {}{match_status}  ", tr(TranslationKey::Repeat)),
+                dim,
+            ),
             Span::styled("v/space", key),
             Span::styled(format!(" {select}  "), dim),
             Span::styled("y/enter", key),
-            Span::styled(" copy  ", dim),
+            Span::styled(format!(" {}  ", tr(TranslationKey::Copy)), dim),
             Span::styled(exit_keys, key),
             Span::styled(exit_label, dim),
         ])
@@ -155,34 +164,37 @@ pub(super) fn render_navigate_overlay(app: &AppState, frame: &mut Frame, area: R
         keybind_label(&kb.navigate.workspace_down)
     );
     let line = Line::from(vec![
-        Span::styled(" NAVIGATE ", mode_style),
+        Span::styled(
+            format!(" {} ", tr(TranslationKey::ModeNavigate)),
+            mode_style,
+        ),
         Span::raw(" "),
         Span::styled("esc", key),
-        Span::styled(" back  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::Back)), dim),
         Span::styled(workspace_nav, key),
-        Span::styled(" ws  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::WsShort)), dim),
         Span::styled("⇥", key),
-        Span::styled(" pane  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::Pane)), dim),
         Span::styled(goto, key),
-        Span::styled(" navigator  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::NavigatorShort)), dim),
         Span::styled(new_tab, key),
-        Span::styled(" new tab  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::NewTab)), dim),
         Span::styled(split_vertical, key),
-        Span::styled(" split│  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::SplitVertSymbol)), dim),
         Span::styled(split_horizontal, key),
-        Span::styled(" split─  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::SplitHorizSymbol)), dim),
         Span::styled(close_pane, key),
-        Span::styled(" close  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::Close)), dim),
         Span::styled(zoom, key),
-        Span::styled(" zoom  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::Zoom)), dim),
         Span::styled(resize, key),
-        Span::styled(" resize  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::ResizeShort)), dim),
         Span::styled(help, key),
-        Span::styled(" keybinds  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::KeybindsLabel)), dim),
         Span::styled(settings, key),
-        Span::styled(" settings  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::Settings)), dim),
         Span::styled(detach, key),
-        Span::styled(" detach", dim),
+        Span::styled(format!(" {}", tr(TranslationKey::Detach)), dim),
     ]);
 
     let overlay_y = area.y + area.height.saturating_sub(1);
@@ -191,12 +203,14 @@ pub(super) fn render_navigate_overlay(app: &AppState, frame: &mut Frame, area: R
 
     if app.update_available.is_some() {
         let status = Line::from(vec![Span::styled(
-            " update ready",
+            format!(" {}", tr(TranslationKey::UpdateReady)),
             Style::default()
                 .fg(app.palette.accent)
                 .add_modifier(Modifier::BOLD),
         )]);
-        let width = 13u16.min(overlay_area.width);
+        let width = crate::ui::display_width_u16(tr(TranslationKey::UpdateReady))
+            .saturating_add(1)
+            .min(overlay_area.width);
         let status_area = Rect::new(
             overlay_area.x + overlay_area.width.saturating_sub(width),
             overlay_area.y,
@@ -268,14 +282,14 @@ pub(super) fn render_resize_overlay(app: &AppState, frame: &mut Frame, area: Rec
         .add_modifier(Modifier::BOLD);
 
     let line = Line::from(vec![
-        Span::styled(" RESIZE ", mode_style),
+        Span::styled(format!(" {} ", tr(TranslationKey::ModeResize)), mode_style),
         Span::raw("  "),
         Span::styled("h/l", key),
-        Span::styled(" width  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::Width)), dim),
         Span::styled("j/k", key),
-        Span::styled(" height  ", dim),
+        Span::styled(format!(" {}  ", tr(TranslationKey::Height)), dim),
         Span::styled("esc", key),
-        Span::styled(" done", dim),
+        Span::styled(format!(" {}", tr(TranslationKey::Done)), dim),
     ]);
 
     let overlay_y = area.y + area.height.saturating_sub(1);

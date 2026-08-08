@@ -24,7 +24,7 @@ pub(crate) fn copy_feedback_rect(
         return Rect::default();
     }
 
-    let content_width = feedback.message.len() as u16 + 4;
+    let content_width = display_width_u16(&feedback.message) + 4;
     let width = content_width.min(area.width);
     let height = 3u16.min(area.height);
     let x = match position {
@@ -203,28 +203,15 @@ pub(super) fn state_dot(state: AgentState, seen: bool, p: &Palette) -> (&'static
     }
 }
 
-pub(super) fn agent_icon(
-    state: AgentState,
-    seen: bool,
-    tick: u32,
-    p: &Palette,
-) -> (&'static str, Style) {
-    match (state, seen) {
-        (AgentState::Blocked, _) => ("◉", Style::default().fg(p.red)),
-        (AgentState::Working, _) => (super::spinner_frame(tick), Style::default().fg(p.yellow)),
-        (AgentState::Idle, false) => ("●", Style::default().fg(p.teal)),
-        (AgentState::Idle, true) => ("✓", Style::default().fg(p.green)),
-        (AgentState::Unknown, _) => ("○", Style::default().fg(p.overlay0)),
-    }
-}
-
 pub(super) fn state_label(state: AgentState, seen: bool) -> &'static str {
+    use crate::i18n::{tr, TranslationKey};
+
     match (state, seen) {
-        (AgentState::Blocked, _) => "blocked",
-        (AgentState::Working, _) => "working",
-        (AgentState::Idle, false) => "done",
-        (AgentState::Idle, true) => "idle",
-        (AgentState::Unknown, _) => "idle",
+        (AgentState::Blocked, _) => tr(TranslationKey::BlockedLabel),
+        (AgentState::Working, _) => tr(TranslationKey::WorkingLabel),
+        (AgentState::Idle, false) => tr(TranslationKey::DoneLabel),
+        (AgentState::Idle, true) => tr(TranslationKey::IdleLabel),
+        (AgentState::Unknown, _) => tr(TranslationKey::IdleLabel),
     }
 }
 
@@ -256,6 +243,22 @@ mod tests {
     fn feedback() -> CopyFeedback {
         CopyFeedback {
             message: "copied to clipboard".to_string(),
+        }
+    }
+
+    #[test]
+    fn state_dots_use_aligned_static_workspace_marks() {
+        let palette = Palette::catppuccin();
+        for (state, seen, symbol, color) in [
+            (AgentState::Blocked, true, "●", palette.red),
+            (AgentState::Working, true, "●", palette.yellow),
+            (AgentState::Idle, false, "●", palette.teal),
+            (AgentState::Idle, true, "○", palette.green),
+            (AgentState::Unknown, true, "·", palette.overlay0),
+        ] {
+            let (actual_symbol, style) = state_dot(state, seen, &palette);
+            assert_eq!(actual_symbol, symbol);
+            assert_eq!(style.fg, Some(color));
         }
     }
 
@@ -321,5 +324,17 @@ mod tests {
             bottom_center.x,
             area.x + area.width.saturating_sub(bottom_center.width) / 2
         );
+    }
+
+    #[test]
+    fn copy_feedback_rect_uses_display_width_for_cjk_message() {
+        let area = Rect::new(0, 0, 100, 20);
+        let feedback = CopyFeedback {
+            message: "已复制到剪贴板".to_string(),
+        };
+
+        let rect = copy_feedback_rect(area, &feedback, 0, ToastClipboardPosition::TopRight);
+
+        assert_eq!(rect.width, display_width_u16(&feedback.message) + 4);
     }
 }

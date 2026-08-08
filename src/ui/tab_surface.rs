@@ -302,10 +302,17 @@ mod tests {
         assert!(!app.view.split_borders.is_empty());
         assert!(frame.cursor.is_some());
         assert_eq!(frame.hyperlinks, vec![uri.to_owned()]);
-        assert_eq!(
-            frame_digest(&frame),
-            "ce383feeaac30922502b7c4f8af53b5ca30e816ec4503ca6d015738b584da487"
-        );
+        // 整帧 digest 与 locale 相关：两种语言各自的特征值都登记，任一生效语言下
+        // 都保持刻画（characterization）能力。
+        let expected_digest = match crate::i18n::current_language() {
+            crate::i18n::Language::En => {
+                "ce383feeaac30922502b7c4f8af53b5ca30e816ec4503ca6d015738b584da487"
+            }
+            crate::i18n::Language::ZhCn => {
+                "c54c827a65837284c3fff041035f807ebb87a2007bc4d6b9a1d1b6d1ffcc9454"
+            }
+        };
+        assert_eq!(frame_digest(&frame), expected_digest);
     }
 
     #[tokio::test]
@@ -319,9 +326,14 @@ mod tests {
         assert_eq!(app.view.mobile_header_rect, Rect::new(0, 0, 44, 2));
         assert_eq!(app.view.terminal_area, Rect::new(0, 2, 44, 18));
         assert_eq!(frame.cursor, None);
-        assert_eq!(
-            frame_digest(&frame),
-            "295608a66067f1e1f066c0adb3cf427e8a2d68bba8f68949fb72d464dcd8baab"
-        );
+        let expected_digest = match crate::i18n::current_language() {
+            crate::i18n::Language::En => {
+                "295608a66067f1e1f066c0adb3cf427e8a2d68bba8f68949fb72d464dcd8baab"
+            }
+            crate::i18n::Language::ZhCn => {
+                "6dd0ace381771f9eb270ecf61a423b296a52b6a2994a9815ae0f4f87a4705d90"
+            }
+        };
+        assert_eq!(frame_digest(&frame), expected_digest);
     }
 }
