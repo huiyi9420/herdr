@@ -232,7 +232,7 @@ pub(super) fn render_global_launcher_menu(app: &AppState, frame: &mut Frame) {
         return;
     };
 
-    let items = app.global_menu_labels();
+    let items = app.global_menu_items();
     for (idx, item) in items.iter().enumerate() {
         let y = inner.y + idx as u16;
         if y >= inner.y + inner.height {
@@ -258,13 +258,13 @@ pub(super) fn render_global_launcher_menu(app: &AppState, frame: &mut Frame) {
                 .add_modifier(Modifier::BOLD)
         };
 
-        let line = if app.global_menu_item_has_badge(item) {
+        let line = if app.global_menu_item_has_badge(item.key) {
             Line::from(vec![
                 Span::styled(" ●", badge_style),
-                Span::styled(format!(" {item} "), item_style),
+                Span::styled(format!(" {} ", item.label()), item_style),
             ])
         } else {
-            Line::from(Span::styled(format!(" {item} "), item_style))
+            Line::from(Span::styled(format!(" {} ", item.label()), item_style))
         };
         frame.render_widget(Paragraph::new(line).alignment(Alignment::Left), rect);
     }
@@ -313,7 +313,7 @@ pub(super) fn render_context_menu(app: &AppState, frame: &mut Frame) {
     let items: Vec<ListItem> = menu
         .items()
         .iter()
-        .map(|item| ListItem::new(Line::from(*item)))
+        .map(|item| ListItem::new(Line::from(tr(item.label))))
         .collect();
     let list = List::new(items)
         .style(Style::default().fg(p.text))

@@ -198,7 +198,7 @@ pub(crate) fn mobile_switcher_target_at(
 
     cursor += 1; // menu title
     let menu_idx = doc_row.checked_sub(cursor)?;
-    (menu_idx < app.global_menu_labels().len()).then_some(MobileSwitcherTarget::Menu(menu_idx))
+    (menu_idx < app.global_menu_items().len()).then_some(MobileSwitcherTarget::Menu(menu_idx))
 }
 
 pub(crate) fn render_mobile_header(
@@ -468,7 +468,7 @@ fn mobile_switcher_content_height(app: &AppState) -> usize {
         .map(|ws| 2 + ws.tabs.len())
         .unwrap_or(0);
     let agents_h = mobile_agents_block_height(app);
-    let menu_h = 1 + app.global_menu_labels().len();
+    let menu_h = 1 + app.global_menu_items().len();
     spaces_h + tabs_h + agents_h + menu_h
 }
 
@@ -738,7 +738,8 @@ fn render_mobile_switcher_content(
         p,
     );
     doc_y += 1;
-    for label in app.global_menu_labels() {
+    for item in app.global_menu_items() {
+        let label = item.label();
         if let Some(y) = visible_y(viewport, app.mobile_switcher_scroll, doc_y) {
             frame.render_widget(
                 Paragraph::new(format!("  {label}"))

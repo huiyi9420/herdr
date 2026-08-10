@@ -1201,6 +1201,68 @@ pub enum ContextMenuKind {
     },
 }
 
+/// 右键菜单操作类型。渲染与动作分发均基于此枚举，避免依赖翻译后的字符串。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContextMenuAction {
+    Rename,
+    Close,
+    CloseGroup,
+    NewWorktree,
+    OpenWorktree,
+    DeleteWorktreeCheckout,
+    Collapse,
+    Expand,
+    NewTab,
+    RenamePane,
+    ClearPaneName,
+    SwapWithFocusedPane,
+    SplitRight,
+    SplitDown,
+    Zoom,
+    ClosePane,
+}
+
+impl ContextMenuAction {
+    /// 返回该项的翻译 key，渲染处用 `tr(item.label)` 取本地化文案。
+    pub const fn label(self) -> crate::i18n::TranslationKey {
+        use crate::i18n::TranslationKey;
+        match self {
+            ContextMenuAction::Rename => TranslationKey::CmRename,
+            ContextMenuAction::Close => TranslationKey::CmClose,
+            ContextMenuAction::CloseGroup => TranslationKey::CmCloseGroup,
+            ContextMenuAction::NewWorktree => TranslationKey::CmNewWorktree,
+            ContextMenuAction::OpenWorktree => TranslationKey::CmOpenWorktree,
+            ContextMenuAction::DeleteWorktreeCheckout => TranslationKey::CmDeleteWorktree,
+            ContextMenuAction::Collapse => TranslationKey::CmCollapse,
+            ContextMenuAction::Expand => TranslationKey::CmExpand,
+            ContextMenuAction::NewTab => TranslationKey::CmNewTab,
+            ContextMenuAction::RenamePane => TranslationKey::CmRenamePane,
+            ContextMenuAction::ClearPaneName => TranslationKey::CmClearPaneName,
+            ContextMenuAction::SwapWithFocusedPane => TranslationKey::CmSwapWithFocusedPane,
+            ContextMenuAction::SplitRight => TranslationKey::CmSplitRight,
+            ContextMenuAction::SplitDown => TranslationKey::CmSplitDown,
+            ContextMenuAction::Zoom => TranslationKey::CmZoom,
+            ContextMenuAction::ClosePane => TranslationKey::CmClosePane,
+        }
+    }
+}
+
+/// 右键菜单项：操作类型 + 显示标签。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ContextMenuItem {
+    pub action: ContextMenuAction,
+    pub label: crate::i18n::TranslationKey,
+}
+
+impl ContextMenuItem {
+    const fn new(action: ContextMenuAction) -> Self {
+        Self {
+            label: action.label(),
+            action,
+        }
+    }
+}
+
 /// Right-click context menu state.
 pub struct ContextMenuState {
     pub kind: ContextMenuKind,
@@ -1210,92 +1272,153 @@ pub struct ContextMenuState {
 }
 
 impl ContextMenuState {
-    pub fn items(&self) -> &'static [&'static str] {
+    pub fn items(&self) -> &'static [ContextMenuItem] {
+        use ContextMenuAction::*;
         match self.kind {
-            ContextMenuKind::Workspace { .. } => &["Rename", "Close"],
+            ContextMenuKind::Workspace { .. } => {
+                static ITEMS: [ContextMenuItem; 2] =
+                    [ContextMenuItem::new(Rename), ContextMenuItem::new(Close)];
+                &ITEMS
+            }
             ContextMenuKind::GitWorkspace {
                 is_linked_worktree: false,
                 has_worktree_children: false,
                 ..
-            } => &["Rename", "Close", "New worktree", "Open worktree..."],
+            } => {
+                static ITEMS: [ContextMenuItem; 4] = [
+                    ContextMenuItem::new(Rename),
+                    ContextMenuItem::new(Close),
+                    ContextMenuItem::new(NewWorktree),
+                    ContextMenuItem::new(OpenWorktree),
+                ];
+                &ITEMS
+            }
             ContextMenuKind::GitWorkspace {
                 is_linked_worktree: true,
                 ..
-            } => &["Rename", "Close", "Delete worktree checkout..."],
+            } => {
+                static ITEMS: [ContextMenuItem; 3] = [
+                    ContextMenuItem::new(Rename),
+                    ContextMenuItem::new(Close),
+                    ContextMenuItem::new(DeleteWorktreeCheckout),
+                ];
+                &ITEMS
+            }
             ContextMenuKind::GitWorkspace {
                 is_linked_worktree: false,
                 has_worktree_children: true,
                 collapsed: true,
                 ..
-            } => &[
-                "Rename",
-                "Close group",
-                "New worktree",
-                "Open worktree...",
-                "Expand",
-            ],
+            } => {
+                static ITEMS: [ContextMenuItem; 5] = [
+                    ContextMenuItem::new(Rename),
+                    ContextMenuItem::new(CloseGroup),
+                    ContextMenuItem::new(NewWorktree),
+                    ContextMenuItem::new(OpenWorktree),
+                    ContextMenuItem::new(Expand),
+                ];
+                &ITEMS
+            }
             ContextMenuKind::GitWorkspace {
                 is_linked_worktree: false,
                 has_worktree_children: true,
                 collapsed: false,
                 ..
-            } => &[
-                "Rename",
-                "Close group",
-                "New worktree",
-                "Open worktree...",
-                "Collapse",
-            ],
-            ContextMenuKind::Tab { .. } => &["New tab", "Rename", "Close"],
+            } => {
+                static ITEMS: [ContextMenuItem; 5] = [
+                    ContextMenuItem::new(Rename),
+                    ContextMenuItem::new(CloseGroup),
+                    ContextMenuItem::new(NewWorktree),
+                    ContextMenuItem::new(OpenWorktree),
+                    ContextMenuItem::new(Collapse),
+                ];
+                &ITEMS
+            }
+            ContextMenuKind::Tab { .. } => {
+                static ITEMS: [ContextMenuItem; 3] = [
+                    ContextMenuItem::new(NewTab),
+                    ContextMenuItem::new(Rename),
+                    ContextMenuItem::new(Close),
+                ];
+                &ITEMS
+            }
             ContextMenuKind::Pane {
                 has_manual_label: true,
                 source_pane_id: Some(_),
                 ..
-            } => &[
-                "Rename pane",
-                "Clear pane name",
-                "Swap with focused pane",
-                "Split right",
-                "Split down",
-                "Zoom",
-                "Close pane",
-            ],
+            } => {
+                static ITEMS: [ContextMenuItem; 7] = [
+                    ContextMenuItem::new(RenamePane),
+                    ContextMenuItem::new(ClearPaneName),
+                    ContextMenuItem::new(SwapWithFocusedPane),
+                    ContextMenuItem::new(SplitRight),
+                    ContextMenuItem::new(SplitDown),
+                    ContextMenuItem::new(Zoom),
+                    ContextMenuItem::new(ClosePane),
+                ];
+                &ITEMS
+            }
             ContextMenuKind::Pane {
                 has_manual_label: false,
                 source_pane_id: Some(_),
                 ..
-            } => &[
-                "Rename pane",
-                "Swap with focused pane",
-                "Split right",
-                "Split down",
-                "Zoom",
-                "Close pane",
-            ],
+            } => {
+                static ITEMS: [ContextMenuItem; 6] = [
+                    ContextMenuItem::new(RenamePane),
+                    ContextMenuItem::new(SwapWithFocusedPane),
+                    ContextMenuItem::new(SplitRight),
+                    ContextMenuItem::new(SplitDown),
+                    ContextMenuItem::new(Zoom),
+                    ContextMenuItem::new(ClosePane),
+                ];
+                &ITEMS
+            }
             ContextMenuKind::Pane {
                 has_manual_label: true,
                 source_pane_id: None,
                 ..
-            } => &[
-                "Rename pane",
-                "Clear pane name",
-                "Split right",
-                "Split down",
-                "Zoom",
-                "Close pane",
-            ],
+            } => {
+                static ITEMS: [ContextMenuItem; 6] = [
+                    ContextMenuItem::new(RenamePane),
+                    ContextMenuItem::new(ClearPaneName),
+                    ContextMenuItem::new(SplitRight),
+                    ContextMenuItem::new(SplitDown),
+                    ContextMenuItem::new(Zoom),
+                    ContextMenuItem::new(ClosePane),
+                ];
+                &ITEMS
+            }
             ContextMenuKind::Pane {
                 has_manual_label: false,
                 source_pane_id: None,
                 ..
-            } => &[
-                "Rename pane",
-                "Split right",
-                "Split down",
-                "Zoom",
-                "Close pane",
-            ],
+            } => {
+                static ITEMS: [ContextMenuItem; 5] = [
+                    ContextMenuItem::new(RenamePane),
+                    ContextMenuItem::new(SplitRight),
+                    ContextMenuItem::new(SplitDown),
+                    ContextMenuItem::new(Zoom),
+                    ContextMenuItem::new(ClosePane),
+                ];
+                &ITEMS
+            }
         }
+    }
+}
+
+/// 全局菜单项：携带 TranslationKey 以便 badge 判定基于 key 而非翻译后的字符串。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GlobalMenuItem {
+    pub key: crate::i18n::TranslationKey,
+}
+
+impl GlobalMenuItem {
+    pub(crate) const fn new(key: crate::i18n::TranslationKey) -> Self {
+        Self { key }
+    }
+
+    pub(crate) fn label(&self) -> &'static str {
+        crate::i18n::tr(self.key)
     }
 }
 
@@ -1618,9 +1741,10 @@ impl AppState {
         self.update_available.is_some() || self.integration_updates_available()
     }
 
-    pub(crate) fn global_menu_item_has_badge(&self, item: &str) -> bool {
-        (item == "update ready" && self.update_available.is_some())
-            || (item == "settings" && self.integration_updates_available())
+    pub(crate) fn global_menu_item_has_badge(&self, key: crate::i18n::TranslationKey) -> bool {
+        use crate::i18n::TranslationKey;
+        (key == TranslationKey::UpdateReady && self.update_available.is_some())
+            || (key == TranslationKey::Settings && self.integration_updates_available())
     }
 
     pub(crate) fn settings_section_has_badge(&self, section: SettingsSection) -> bool {
@@ -2446,8 +2570,12 @@ mod tests {
         };
 
         assert_eq!(
-            menu.items(),
-            &["Rename", "Close", "Delete worktree checkout..."]
+            menu.items().iter().map(|i| i.action).collect::<Vec<_>>(),
+            [
+                ContextMenuAction::Rename,
+                ContextMenuAction::Close,
+                ContextMenuAction::DeleteWorktreeCheckout,
+            ]
         );
     }
 
@@ -2466,8 +2594,13 @@ mod tests {
         };
 
         assert_eq!(
-            menu.items(),
-            &["Rename", "Close", "New worktree", "Open worktree..."]
+            menu.items().iter().map(|i| i.action).collect::<Vec<_>>(),
+            [
+                ContextMenuAction::Rename,
+                ContextMenuAction::Close,
+                ContextMenuAction::NewWorktree,
+                ContextMenuAction::OpenWorktree,
+            ]
         );
     }
 
@@ -2486,13 +2619,13 @@ mod tests {
         };
 
         assert_eq!(
-            menu.items(),
-            &[
-                "Rename",
-                "Close group",
-                "New worktree",
-                "Open worktree...",
-                "Collapse"
+            menu.items().iter().map(|i| i.action).collect::<Vec<_>>(),
+            [
+                ContextMenuAction::Rename,
+                ContextMenuAction::CloseGroup,
+                ContextMenuAction::NewWorktree,
+                ContextMenuAction::OpenWorktree,
+                ContextMenuAction::Collapse,
             ]
         );
     }

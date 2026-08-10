@@ -196,36 +196,43 @@ impl AppState {
         Rect::new(x, footer.y, width, footer.height)
     }
 
-    pub(crate) fn global_menu_labels(&self) -> Vec<&'static str> {
-        let mut labels = vec!["settings", "keybinds", "reload config"];
+    pub(crate) fn global_menu_items(&self) -> Vec<crate::app::state::GlobalMenuItem> {
+        use crate::app::state::GlobalMenuItem;
+        use crate::i18n::TranslationKey;
+        let mut items = vec![
+            GlobalMenuItem::new(TranslationKey::Settings),
+            GlobalMenuItem::new(TranslationKey::KeybindsLabel),
+            GlobalMenuItem::new(TranslationKey::ReloadConfig),
+        ];
+        // "有更新"带更新 badge 提示；否则有新版 release notes 才显示"新功能"。两分支语义不同，不可合并。
         if self.update_available.is_some() {
-            labels.push("update ready");
+            items.push(GlobalMenuItem::new(TranslationKey::UpdateReady));
         } else if self.latest_release_notes_available {
-            labels.push("what's new");
+            items.push(GlobalMenuItem::new(TranslationKey::WhatsNew));
         }
-        labels.push("detach");
-        labels
+        items.push(GlobalMenuItem::new(TranslationKey::Detach));
+        items
     }
 
     pub(crate) fn global_menu_rect(&self) -> Rect {
         let screen = self.screen_rect();
         let launcher = self.global_launcher_rect();
-        let labels = self.global_menu_labels();
-        let content_width = labels
+        let items = self.global_menu_items();
+        let content_width = items
             .iter()
-            .map(|label| {
-                let badge_width = if self.global_menu_item_has_badge(label) {
+            .map(|item| {
+                let badge_width = if self.global_menu_item_has_badge(item.key) {
                     2
                 } else {
                     0
                 };
-                label.chars().count() as u16 + badge_width
+                crate::ui::display_width_u16(item.label()) + badge_width
             })
             .max()
             .unwrap_or(8)
             .saturating_add(2);
         let menu_w = content_width.saturating_add(2).min(screen.width.max(1));
-        let menu_h = (labels.len() as u16 + 2).min(screen.height.max(1));
+        let menu_h = (items.len() as u16 + 2).min(screen.height.max(1));
         let max_x = screen.x + screen.width.saturating_sub(menu_w);
         let desired_x = launcher.x + launcher.width.saturating_sub(menu_w);
         let x = desired_x.min(max_x);
@@ -641,13 +648,17 @@ mod tests {
         ));
 
         assert_eq!(
-            app.state.global_menu_labels(),
+            app.state
+                .global_menu_items()
+                .iter()
+                .map(|i| i.label())
+                .collect::<Vec<_>>(),
             vec![
-                "settings",
-                "keybinds",
-                "reload config",
-                "update ready",
-                "detach"
+                crate::i18n::tr(crate::i18n::TranslationKey::Settings),
+                crate::i18n::tr(crate::i18n::TranslationKey::KeybindsLabel),
+                crate::i18n::tr(crate::i18n::TranslationKey::ReloadConfig),
+                crate::i18n::tr(crate::i18n::TranslationKey::UpdateReady),
+                crate::i18n::tr(crate::i18n::TranslationKey::Detach),
             ]
         );
         assert!(!app.state.should_quit);
@@ -666,8 +677,17 @@ mod tests {
         ));
 
         assert_eq!(
-            app.state.global_menu_labels(),
-            vec!["settings", "keybinds", "reload config", "detach"]
+            app.state
+                .global_menu_items()
+                .iter()
+                .map(|i| i.label())
+                .collect::<Vec<_>>(),
+            vec![
+                crate::i18n::tr(crate::i18n::TranslationKey::Settings),
+                crate::i18n::tr(crate::i18n::TranslationKey::KeybindsLabel),
+                crate::i18n::tr(crate::i18n::TranslationKey::ReloadConfig),
+                crate::i18n::tr(crate::i18n::TranslationKey::Detach),
+            ]
         );
 
         let menu = app.state.global_menu_rect();
@@ -688,13 +708,17 @@ mod tests {
         app.state.latest_release_notes_available = true;
 
         assert_eq!(
-            app.state.global_menu_labels(),
+            app.state
+                .global_menu_items()
+                .iter()
+                .map(|i| i.label())
+                .collect::<Vec<_>>(),
             vec![
-                "settings",
-                "keybinds",
-                "reload config",
-                "what's new",
-                "detach"
+                crate::i18n::tr(crate::i18n::TranslationKey::Settings),
+                crate::i18n::tr(crate::i18n::TranslationKey::KeybindsLabel),
+                crate::i18n::tr(crate::i18n::TranslationKey::ReloadConfig),
+                crate::i18n::tr(crate::i18n::TranslationKey::WhatsNew),
+                crate::i18n::tr(crate::i18n::TranslationKey::Detach),
             ]
         );
     }
